@@ -15,11 +15,11 @@ const port = 3811;
 
 // PostgreSQL configuration
 const pool = new Pool({
-    user: 'postgres',
-    host: 'postgres',
-    database: 'job_applications',
-    password: 'admin234',
-    port: 5432,
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'postgres',
+    database: process.env.DB_NAME || 'job_applications', // Must match
+    password: process.env.DB_PASSWORD || 'admin234',
+    port: parseInt(process.env.DB_PORT) || 5432,
 });
 
 // Middleware
