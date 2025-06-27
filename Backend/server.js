@@ -11,14 +11,14 @@ const sharp = require('sharp');
 const PDFDocument = require('pdfkit');
 
 const app = express();
-const port = 3000;
+const port = 3811;
 
 // PostgreSQL configuration
 const pool = new Pool({
     user: 'postgres',
-    host: 'localhost',
+    host: 'postgres',
     database: 'job_applications',
-    password: 'Veera@0134',
+    password: 'admin234',
     port: 5432,
 });
 
@@ -141,7 +141,7 @@ app.post('/api/applications', applicationUpload.fields([
             status: 'Pending'
         };
 
-        const baseUrl = `http://localhost:${port}/Uploads/`;
+        const baseUrl = `http://13.233.84.170:${port}/Uploads/`;
         if (files.resume) {
             formData.documents.resume = {
                 name: files.resume[0].originalname,
@@ -353,7 +353,7 @@ app.post('/api/applications/upload', offerUpload.array('files', 10), async (req,
             await pool.query('DELETE FROM application_files WHERE id = $1', [file.id]);
         }
 
-        const baseUrl = `http://localhost:${port}/Uploads/`;
+        const baseUrl = `http://13.233.84.170:${port}/Uploads/`;
         const fileRecords = [];
 
         for (const file of files) {
@@ -514,7 +514,7 @@ app.delete('/api/applications/files/:fileId', async (req, res) => {
 app.listen(port, async () => {
     try {
         await pool.connect();
-        console.log(`Server running on http://localhost:${port}`);
+        console.log(`Server running on http://13.233.84.170:${port}`);
     } catch (error) {
         console.error('Failed to connect to database:', error);
         process.exit(1);
