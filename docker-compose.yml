@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: job_applications_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin234
+      POSTGRES_DB: job_applications  # Database name matching your backend
+    ports:
+      - "5473:5432"  # Avoids conflict with default PostgreSQL port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Ensure this file exists
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./Backend
+    container_name: job_applications_backend
+    ports:
+      - "3811:3811"  # Matches your server.js port
+    environment:
+      PORT: 3811
+      DB_USER: postgres
+      DB_PASSWORD: admin234
+      DB_HOST: postgres
+      DB_NAME: job_applications  # Must match POSTGRES_DB
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./Frontend
+    container_name: job_applications_frontend
+    ports:
+      - "8067:80"  # Standard frontend port
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  hr:
+    build: ./HR
+    container_name: job_applications_hr
+    ports:
+      - "8068:80"  # Sequential port
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  view_offer:
+    build: ./View_offer
+    container_name: job_applications_view_offer
+    ports:
+      - "8069:80"  # Sequential port
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    driver: bridge
