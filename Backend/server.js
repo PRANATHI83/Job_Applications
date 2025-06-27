@@ -141,7 +141,7 @@ app.post('/api/applications', applicationUpload.fields([
             status: 'Pending'
         };
 
-        const baseUrl = `http://13.233.84.170:${port}/Uploads/`;
+        const baseUrl = `http://54.159.175.17:${port}/Uploads/`;
         if (files.resume) {
             formData.documents.resume = {
                 name: files.resume[0].originalname,
@@ -353,7 +353,7 @@ app.post('/api/applications/upload', offerUpload.array('files', 10), async (req,
             await pool.query('DELETE FROM application_files WHERE id = $1', [file.id]);
         }
 
-        const baseUrl = `http://13.233.84.170:${port}/Uploads/`;
+        const baseUrl = `http://54.159.175.17:${port}/Uploads/`;
         const fileRecords = [];
 
         for (const file of files) {
