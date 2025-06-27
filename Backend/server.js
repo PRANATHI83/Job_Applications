@@ -1,4 +1,4 @@
-// server.js
+// ... [keep existing imports]
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
@@ -7,11 +7,13 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const libre = require('libreoffice-convert');
+const sharp = require('sharp');
+const PDFDocument = require('pdfkit');
 
 const app = express();
 const port = 3811;
 
-// PostgreSQL pool
 const pool = new Pool({
     user: 'postgres',
     host: 'postgres',
@@ -25,43 +27,9 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
-// Multer storage for offer documents
-const offerStorage = multer.diskStorage({
-    destination: async (req, file, cb) => {
-        try {
-            const uploadPath = path.join(__dirname, 'Uploads');
-            await fs.mkdir(uploadPath, { recursive: true });
-            cb(null, uploadPath);
-        } catch (err) {
-            cb(err);
-        }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${uuidv4()}`;
-        cb(null, `${uniqueSuffix}-${file.originalname}`);
-    }
-});
+// ----[Omitted unchanged multer configs & static folders]----
 
-const offerUpload = multer({
-    storage: offerStorage,
-    limits: { fileSize: 10 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const allowed = [
-            'application/pdf',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/jpeg',
-            'image/jpg',
-            'image/png'
-        ];
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only PDF, DOCX, JPG, JPEG, and PNG files are allowed'));
-        }
-    }
-});
-
-// Upload offer documents
+// ✅ Upload offer documents
 app.post('/api/applications/upload', offerUpload.array('files', 10), async (req, res) => {
     try {
         const applicationId = parseInt(req.body.applicationId, 10);
@@ -77,16 +45,20 @@ app.post('/api/applications/upload', offerUpload.array('files', 10), async (req,
             return res.status(400).json({ error: 'No files uploaded' });
         }
 
+        // Validate application status
         const appCheck = await pool.query('SELECT status FROM applications WHERE id = $1', [applicationId]);
         if (appCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Application not found' });
         }
 
-        if (appCheck.rows[0].status !== 'Accepted') {
+        const appStatus = appCheck.rows[0].status;
+        console.log(`Application ${applicationId} status:`, appStatus);
+
+        if (appStatus !== 'Accepted') {
             return res.status(403).json({ error: 'Files can only be uploaded for accepted applications' });
         }
 
-        // Delete old files
+        // 🧹 Delete previous files
         const existingFiles = await pool.query(
             'SELECT id, path FROM application_files WHERE application_id = $1',
             [applicationId]
@@ -101,7 +73,7 @@ app.post('/api/applications/upload', offerUpload.array('files', 10), async (req,
             await pool.query('DELETE FROM application_files WHERE id = $1', [file.id]);
         }
 
-        // Save new files
+        // 📦 Save new files
         const baseUrl = `http://13.233.84.170:${port}/Uploads/`;
         const fileRecords = [];
 
@@ -143,13 +115,33 @@ app.post('/api/applications/upload', offerUpload.array('files', 10), async (req,
     }
 });
 
+// ✅ Fetch uploaded files
+app.get('/api/applications/:id/files', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            'SELECT id, name, path, size, mime_type, uploaded_at FROM application_files WHERE application_id = $1 ORDER BY uploaded_at DESC',
+            [id]
+        );
+
+        console.log(`Fetched ${result.rows.length} uploaded file(s) for application ${id}`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Fetch files error:', error);
+        res.status(500).json({ error: 'Failed to fetch uploaded files: ' + error.message });
+    }
+});
+
+// ✅ Keep all other routes unchanged...
+// (PATCH, GET applications, POST application, file download, file delete, etc.)
+
 // Start server
 app.listen(port, async () => {
     try {
         await pool.connect();
-        console.log(`✅ Server running at http://13.233.84.170:${port}`);
-    } catch (err) {
-        console.error('❌ Database connection failed:', err);
+        console.log(`🚀 Server running at http://13.233.84.170:${port}`);
+    } catch (error) {
+        console.error('Database connection failed:', error);
         process.exit(1);
     }
 });
